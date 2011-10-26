@@ -123,14 +123,15 @@ A changed entity has the API:
 
 ## Setting the Current Username
 
-If your Zend_Auth identity is a string (Zend_Auth_Adapter_DbTable) or implements a __toString function this will be considered as the current user else you c$
+If your Zend_Auth identity is a string (Zend_Auth_Adapter_DbTable) or implements a __toString function this will be considered as the current user else you can set it yourself to the configuration:
 
         <?php
         protected function _initInjectUsernameToAuditConfiguration()
         {
                 $this->bootstrap('audit');
 
-                $auditConfiguration = $this->getResource('audit');
+                $auditManager = $this->getResource('audit');
+                $auditConfiguration = $auditManager->getConfiguration();
                 $auditConfiguration->setCurrentUsername = 'some-user-name-here';
         }
         ?>
