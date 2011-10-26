@@ -32,23 +32,30 @@ https://github.com/guilhermeblanco/ZendFramework1-Doctrine2
 Create a directory library/SimpleThings/EntityAudit and add this library to it.
 
 3. Configure your application.ini and add:
+
 	autoloaderNamespaces[] = "SimpleThings"
 
 	pluginPaths.SimpleThings\EntityAudit\Application\Resource\ = "SimpleThings/EntityAudit/Application/Resource"
 
 	;Add your entity paths here you want to audit
-	resources.audit.auditedEntityClasses[] = "My\Entity\SomeEntity"
+	
+	resources.audit.auditedEntityClasses[] = "My\Entity\SomeEntity" 
+	
 	resources.audit.auditedEntityClasses[] = "My\Entity\SomeOtherEntity"
 	
 	;If you like you can apply these settings to:
+	
 	resources.audit.revisionTableName = "revisions"
+	
 	resources.audit.revisionTypeFieldName = "revtype"
+	
 	resources.audit.revisionFieldName = "rev"
 	
 4. Finally create the schema tables with the Doctrine commandline tool. If you are using bisna:
 
-php /path/to/your/zf/app/scripts/doctrine.php orm:schema:update --dump-sql to see the new tables in the update schema queue.
-php /path/to/your/zf/app/scripts/doctrine.php orm:schema:update --force to really create them
+`php /path/to/your/zf/app/scripts/doctrine.php orm:schema-tool:update --dump-sql` to see the new tables in the update schema queue.
+
+`php /path/to/your/zf/app/scripts/doctrine.php orm:schema-tool:update --force` to really create them
 
 Notice: EntityAudit currently only works with a DBAL Connection and EntityManager named "default".
 
