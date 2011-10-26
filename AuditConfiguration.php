@@ -92,12 +92,12 @@ class AuditConfiguration
     {
         return new Metadata\MetadataFactory($this->auditedEntityClasses);
     }
-    
+
     public function setCurrentUsername($username)
     {
         $this->currentUsername = $username;
     }
-    
+
     public function getCurrentUsername()
     {
         return $this->currentUsername;

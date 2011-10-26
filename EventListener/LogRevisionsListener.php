@@ -4,6 +4,7 @@
  *
  * @package SimpleThings\EntityAudit
  * @author Benjamin Eberlei <eberlei@simplethings.de>
+ * @author Kees Schepers <kees@stichtingsbo.nl>
  * @link http://www.simplethings.de
  *
  * This library is free software; you can redistribute it and/or
@@ -46,22 +47,22 @@ class LogRevisionsListener implements EventSubscriber
      * @var Doctrine\DBAL\Connection
      */
     private $conn;
-    
+
     /**
      * @var Doctrine\DBAL\Platforms\AbstractPlatform
      */
     private $platform;
-    
+
     /**
      * @var Doctrine\ORM\EntityManager
      */
     private $em;
-    
+
     /**
      * @var array
      */
     private $insertRevisionSQL = array();
-    
+
     /**
      * @var Doctrine\ORM\UnitOfWork
      */
@@ -72,6 +73,9 @@ class LogRevisionsListener implements EventSubscriber
      */
     private $revisionId;
 
+    private $originalEntityData = array();
+
+
     public function __construct(AuditManager $auditManager)
     {
         $this->config = $auditManager->getConfiguration();
@@ -80,36 +84,83 @@ class LogRevisionsListener implements EventSubscriber
 
     public function getSubscribedEvents()
     {
-        return array(Events::onFlush, Events::postPersist, Events::postUpdate);
+        return array(Events::onFlush, Events::postPersist, Events::postUpdate, Events::postLoad);
     }
 
+    /**
+     * This is a workaround because $uow->getOriginalEntityData doesn't seem to
+     * return the old data of an entity which causes the new data being saved as revision.
+     *
+     * @link http://github.com/simplethings/EntityAudit/issues/2
+     * @param LifecycleEventArgs $eventArgs
+     * @author Kees Schepers <kees@stichtingsbo.nl>
+     * @return void
+     */
+    public function postLoad(LifecycleEventArgs $eventArgs) {
+        $entity = $eventArgs->getEntity();
+        $em = $eventArgs->getEntityManager();
+        $uow = $em->getUnitOfWork();
+        $oid = spl_object_hash($entity);
+
+        $class = $eventArgs->getEntityManager()->getClassMetadata(get_class($entity));
+
+        if (!$this->metadataFactory->isAudited($class->name)) {
+            return;
+        }
+
+        $this->originalEntityData[$oid] = $uow->getOriginalEntityData($entity);
+    }
+
+    /**
+     * Add the new added entity to the database as a revision.
+     *
+     * @param LifecycleEventArgs $eventArgs
+     * @return void
+     */
     public function postPersist(LifecycleEventArgs $eventArgs)
     {
         // onFlush was executed before, everything already initialized
         $entity = $eventArgs->getEntity();
+        $oid = spl_object_hash($entity);
 
         $class = $this->em->getClassMetadata(get_class($entity));
         if (!$this->metadataFactory->isAudited($class->name)) {
             return;
         }
 
-        $this->saveRevisionEntityData($class, $this->uow->getOriginalEntityData($entity), 'INS');
+        $entityData = $this->uow->getOriginalEntityData($entity);
+
+        $this->saveRevisionEntityData($class, $entityData, 'INS');
     }
 
+    /**
+     *
+     * Add the old data to the corresponding audit table
+     *
+     * @param LifecycleEventArgs $eventArgs
+     * @return void
+     */
     public function postUpdate(LifecycleEventArgs $eventArgs)
     {
         // onFlush was executed before, everything already initialized
         $entity = $eventArgs->getEntity();
-
+        $oid = spl_object_hash($entity);
         $class = $this->em->getClassMetadata(get_class($entity));
         if (!$this->metadataFactory->isAudited($class->name)) {
             return;
         }
 
-        $entityData = array_merge($this->uow->getOriginalEntityData($entity), $this->uow->getEntityIdentifier($entity));
+        $entityData = array_merge($this->originalEntityData[$oid], $this->uow->getEntityIdentifier($entity));
         $this->saveRevisionEntityData($class, $entityData, 'UPD');
     }
 
+    /**
+     *
+     * Handles d
+     *
+     * @param OnFlushEventArgs $eventArgs
+     * @return void
+     */
     public function onFlush(OnFlushEventArgs $eventArgs)
     {
         $this->em = $eventArgs->getEntityManager();
